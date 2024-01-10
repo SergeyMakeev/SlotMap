@@ -305,11 +305,34 @@ TEST(SlotMapTest, ConstantGetter)
 TEST(SlotMapTest, IteratorsComparison)
 {
     dod::slot_map<std::string> slotMap;
-    EXPECT_FALSE(slotMap.begin() == slotMap.end());
-    EXPECT_TRUE(slotMap.begin() != slotMap.end());
+    EXPECT_FALSE(slotMap.begin() != slotMap.end());
+    EXPECT_TRUE(slotMap.begin() == slotMap.end());
 
-    EXPECT_FALSE(slotMap.items().begin() == slotMap.items().end());
-    EXPECT_TRUE(slotMap.items().begin() != slotMap.items().end());
+    EXPECT_FALSE(slotMap.items().begin() != slotMap.items().end());
+    EXPECT_TRUE(slotMap.items().begin() == slotMap.items().end());
+}
+
+TEST(SlotMapTest, Iterator)
+{
+    dod::slot_map<int> slotMap;
+    ASSERT_EQ(0u, slotMap.size());
+
+    auto id1 = slotMap.emplace(12);
+    auto id2 = slotMap.emplace(13);
+
+    ASSERT_TRUE(slotMap.has_key(id1));
+    ASSERT_TRUE(slotMap.has_key(id2));
+
+    slotMap.erase(id2);
+    ASSERT_FALSE(slotMap.has_key(id2));
+
+    for (const auto& [key, val] : slotMap.items()) {
+        EXPECT_TRUE(slotMap.has_key(key));
+        EXPECT_EQ(key, id1);
+    }
+    for (const auto& val : slotMap) {
+        EXPECT_EQ(val, 12);
+    }
 }
 
 std::atomic<int> ctorCount = 0;
