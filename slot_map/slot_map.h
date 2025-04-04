@@ -7,6 +7,7 @@
 #include <stdint.h>
 #include <vector>
 #include <algorithm>
+#include <limits>
 
 
 #include <inttypes.h>
