@@ -50,23 +50,9 @@ jobs:
       - name: Generate Coverage Report
         run: |
           lcov --directory build --capture --output-file coverage.info
-          echo "=== ALL captured coverage files ==="
-          lcov --list coverage.info
-          echo ""
-          echo "=== Raw coverage.info contents (first 100 lines) ==="
-          head -100 coverage.info
-          echo ""
-          echo "=== Searching for slot_map references in coverage.info ==="
-          grep -i "slot_map" coverage.info || echo "No slot_map references found"
-          echo ""
-          echo "=== All .h files in coverage ==="
-          grep "\.h" coverage.info || echo "No .h files found"
-          echo ""
-          echo "=== Extracting slot_map.h coverage ==="
           lcov --extract coverage.info '*/slot_map/slot_map.h' --output-file coverage_filtered.info
           lcov --list coverage_filtered.info
-          echo ""
-          echo "=== Coverage filtered file contents ==="
+          echo "=== Coverage file contents ==="
           cat coverage_filtered.info
 
       - name: Upload coverage reports to Codecov
