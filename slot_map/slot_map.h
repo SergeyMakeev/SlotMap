@@ -11,7 +11,7 @@
 #include <inttypes.h>
 #define PRIslotkey PRIu64
 
-// TODO (detailed desc): you could override memory allocator by defining SLOT_MAP_ALLOC/SLOT_MAP_FREE macroses
+// You could override memory allocator by defining SLOT_MAP_ALLOC/SLOT_MAP_FREE macroses
 #if !defined(SLOT_MAP_ALLOC) || !defined(SLOT_MAP_FREE)
 
 #if defined(_WIN32)
@@ -31,7 +31,7 @@
 // extern void _onAssertionFailed(const char* expression, const char* srcFile, unsigned int srcLine);
 // #define SLOT_MAP_ASSERT(expression) (void)((!!(expression)) || (_onAssertionFailed(#expression, __FILE__, (unsigned int)(__LINE__)), 0))
 
-// TODO (detailed desc): you could override asserts by defining SLOT_MAP_ASSERT macro
+// You could override asserts by defining SLOT_MAP_ASSERT macro
 #if !defined(SLOT_MAP_ASSERT)
 #include <assert.h>
 #define SLOT_MAP_ASSERT(expression) assert(expression)
