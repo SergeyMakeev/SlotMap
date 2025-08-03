@@ -50,21 +50,16 @@ jobs:
       - name: Generate Coverage Report
         run: |
           lcov --directory build --capture --output-file coverage.info
-          # Remove coverage from external dependencies only
-          lcov --remove coverage.info '*/extern/*' --output-file coverage_filtered.info
-          lcov --remove coverage_filtered.info '*/googletest/*' --output-file coverage_filtered.info
-          lcov --remove coverage_filtered.info '*/CMakeFiles/*' --output-file coverage_filtered.info
-          # Keep both header and test files that exercise slot_map
-          lcov --extract coverage_filtered.info '*/slot_map/*' '*/SlotMapTest*.cpp' --output-file coverage_final.info
-          lcov --list coverage_final.info
+          lcov --extract coverage.info '*/slot_map/slot_map.h' --output-file coverage_filtered.info
+          lcov --list coverage_filtered.info
           echo "=== Coverage file contents ==="
-          cat coverage_final.info
+          cat coverage_filtered.info
 
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          files: ./coverage_final.info
+          files: ./coverage_filtered.info
           flags: unittests
           name: codecov-umbrella
           fail_ci_if_error: false
