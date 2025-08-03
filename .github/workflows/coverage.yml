@@ -1,0 +1,74 @@
+name: Coverage
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+
+jobs:
+  coverage:
+    name: Code Coverage
+    runs-on: ubuntu-22.04
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build gcc-11 g++-11 lcov
+
+      - name: Setup CMake
+        uses: jwlawson/actions-setup-cmake@v1.14
+        with:
+          cmake-version: '3.25'
+
+      - name: Configure CMake with Coverage
+        run: |
+          cmake -B build \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DCMAKE_CXX_FLAGS="--coverage -fprofile-arcs -ftest-coverage" \
+            -DCMAKE_C_FLAGS="--coverage -fprofile-arcs -ftest-coverage" \
+            -DCMAKE_EXE_LINKER_FLAGS="--coverage" \
+            -G Ninja
+        env:
+          CC: gcc-11
+          CXX: g++-11
+
+      - name: Build
+        run: cmake --build build --parallel
+
+      - name: Run Tests
+        working-directory: build
+        run: ./SlotMapTest --gtest_filter=-SlotMapTest.*_Slow
+
+      - name: Generate Coverage Report
+        run: |
+          lcov --directory build --capture --output-file coverage.info
+          # Remove coverage from test files and external dependencies
+          lcov --remove coverage.info '*/SlotMapTest*.cpp' --output-file coverage_filtered.info
+          lcov --remove coverage_filtered.info '*/extern/*' --output-file coverage_filtered.info
+          lcov --remove coverage_filtered.info '*/googletest/*' --output-file coverage_filtered.info
+          # Extract only slot_map header coverage
+          lcov --extract coverage_filtered.info '*/slot_map/slot_map.h' --output-file coverage_final.info
+          lcov --list coverage_final.info
+          echo "=== Coverage file contents ==="
+          cat coverage_final.info
+
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./coverage_final.info
+          flags: unittests
+          name: codecov-umbrella
+          fail_ci_if_error: false
+          disable_search: true
+          override_branch: ${{ github.ref_name }}
+          override_build: ${{ github.run_number }}
+          override_commit: ${{ github.sha }} 

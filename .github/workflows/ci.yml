@@ -1,0 +1,193 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  build-and-test:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Windows MSVC 2022
+          - name: "Windows MSVC 2022"
+            os: windows-2022
+            compiler: msvc
+            build_type: Release
+            
+          - name: "Windows MSVC 2022 Debug"
+            os: windows-2022
+            compiler: msvc
+            build_type: Debug
+
+          # Ubuntu GCC 11
+          - name: "Ubuntu GCC 11"
+            os: ubuntu-22.04
+            compiler: gcc
+            version: "11"
+            build_type: Release
+            
+          - name: "Ubuntu GCC 11 Debug"
+            os: ubuntu-22.04
+            compiler: gcc
+            version: "11"
+            build_type: Debug
+
+          # Ubuntu Clang 14
+          - name: "Ubuntu Clang 14"
+            os: ubuntu-22.04
+            compiler: clang
+            version: "14"
+            build_type: Release
+            
+          - name: "Ubuntu Clang 14 Debug"
+            os: ubuntu-22.04
+            compiler: clang
+            version: "14"
+            build_type: Debug
+
+          # macOS Clang
+          - name: "macOS Clang"
+            os: macos-latest
+            compiler: clang
+            build_type: Release
+            
+          - name: "macOS Clang Debug"
+            os: macos-latest
+            compiler: clang
+            build_type: Debug
+
+          # Sanitizer builds
+          - name: "Ubuntu GCC 11 + ASan + UBSan"
+            os: ubuntu-22.04
+            compiler: gcc
+            version: "11"
+            build_type: Debug
+            sanitizers: "address,undefined"
+            
+          - name: "Ubuntu Clang 14 + ASan + UBSan"
+            os: ubuntu-22.04
+            compiler: clang
+            version: "14"
+            build_type: Debug
+            sanitizers: "address,undefined"
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    - name: Setup MSVC
+      if: matrix.compiler == 'msvc'
+      uses: microsoft/setup-msbuild@v1.3
+
+    - name: Setup GCC
+      if: matrix.compiler == 'gcc'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y gcc-${{ matrix.version }} g++-${{ matrix.version }}
+        sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-${{ matrix.version }} 100
+        sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-${{ matrix.version }} 100
+
+    - name: Setup Clang
+      if: matrix.compiler == 'clang' && matrix.os == 'ubuntu-22.04'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          clang-${{ matrix.version }} \
+          libc++-${{ matrix.version }}-dev \
+          libc++abi-${{ matrix.version }}-dev \
+          libc++1-${{ matrix.version }} \
+          libc++abi1-${{ matrix.version }}
+        sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-${{ matrix.version }} 100
+        sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-${{ matrix.version }} 100
+
+    - name: Configure CMake (Windows)
+      if: matrix.os == 'windows-2022'
+      run: |
+        cmake -B build -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -A x64
+
+    - name: Configure CMake (Unix)
+      if: matrix.os != 'windows-2022'
+      run: |
+        export CC=${{ matrix.compiler == 'gcc' && 'gcc' || 'clang' }}
+        export CXX=${{ matrix.compiler == 'gcc' && 'g++' || 'clang++' }}
+        
+        if [[ "${{ matrix.sanitizers }}" != "" ]]; then
+          SANITIZER_FLAGS="-fsanitize=${{ matrix.sanitizers }} -fno-omit-frame-pointer"
+          cmake -B build \
+            -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+            -DCMAKE_CXX_FLAGS="$SANITIZER_FLAGS" \
+            -DCMAKE_C_FLAGS="$SANITIZER_FLAGS" \
+            -DCMAKE_EXE_LINKER_FLAGS="$SANITIZER_FLAGS" \
+            -DCMAKE_SHARED_LINKER_FLAGS="$SANITIZER_FLAGS" \
+            -Dgtest_force_shared_crt=ON
+        else
+          cmake -B build -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
+        fi
+
+    - name: Build
+      run: cmake --build build --config ${{ matrix.build_type }}
+
+    - name: Test
+      working-directory: build
+      run: |
+        if [[ "$RUNNER_OS" == "Windows" ]]; then
+          ./${{ matrix.build_type }}/SlotMapTest.exe --gtest_filter=-SlotMapTest.*_Slow
+        else
+          ./SlotMapTest --gtest_filter=-SlotMapTest.*_Slow
+        fi
+      shell: bash
+
+    - name: Test with sanitizers
+      if: matrix.sanitizers != ''
+      working-directory: build
+      run: |
+        echo "Running tests with sanitizers: ${{ matrix.sanitizers }}"
+        if [[ "${{ matrix.sanitizers }}" == *"address"* ]]; then
+          export ASAN_OPTIONS="abort_on_error=1:halt_on_error=1:print_stats=1"
+        fi
+        if [[ "${{ matrix.sanitizers }}" == *"undefined"* ]]; then
+          export UBSAN_OPTIONS="abort_on_error=1:halt_on_error=1:print_stacktrace=1"
+        fi
+        ./SlotMapTest --gtest_filter=-SlotMapTest.*_Slow
+      shell: bash
+
+  # Static analysis
+  static-analysis:
+    name: Static Analysis
+    runs-on: ubuntu-22.04
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    - name: Setup Clang tools
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y clang-14 clang-tidy-14 clang-format-14
+        sudo update-alternatives --install /usr/bin/clang-tidy clang-tidy /usr/bin/clang-tidy-14 100
+        sudo update-alternatives --install /usr/bin/clang-format clang-format /usr/bin/clang-format-14 100
+
+    - name: Configure with compile commands
+      run: |
+        export CC=clang-14
+        export CXX=clang++-14
+        cmake -B build -DCMAKE_BUILD_TYPE=Debug -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+
+    - name: Run clang-tidy
+      run: |
+        clang-tidy --version
+        find . -name "*.cpp" -not -path "./build/*" -not -path "./extern/*" | xargs clang-tidy -p build --warnings-as-errors=*
+
+    - name: Check formatting
+      run: |
+        clang-format --version
+        find . -name "*.hpp" -o -name "*.cpp" -o -name "*.h" | grep -v build | grep -v extern | xargs clang-format --dry-run --Werror
