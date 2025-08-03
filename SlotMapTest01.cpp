@@ -326,11 +326,13 @@ TEST(SlotMapTest, Iterator)
     slotMap.erase(id2);
     ASSERT_FALSE(slotMap.has_key(id2));
 
-    for (const auto& [key, val] : slotMap.items()) {
+    for (const auto& [key, val] : slotMap.items())
+    {
         EXPECT_TRUE(slotMap.has_key(key));
         EXPECT_EQ(key, id1);
     }
-    for (const auto& val : slotMap) {
+    for (const auto& val : slotMap)
+    {
         EXPECT_EQ(val, 12);
     }
 }

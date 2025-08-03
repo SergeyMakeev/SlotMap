@@ -62,7 +62,6 @@ TEST(SlotMapTest, IdsToAssociativeContainers32)
     }
 }
 
-
 TEST(SlotMapTest, SlotsDeactivationOnClear)
 {
     dod::slot_map32<int> slotMap;

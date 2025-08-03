@@ -1,13 +1,12 @@
 #pragma once
 
+#include <algorithm>
 #include <cstring>
 #include <deque>
 #include <functional>
 #include <optional>
 #include <stdint.h>
 #include <vector>
-#include <algorithm>
-
 
 #include <inttypes.h>
 #define PRIslotkey PRIu64
@@ -30,7 +29,7 @@
 #endif
 
 // extern void _onAssertionFailed(const char* expression, const char* srcFile, unsigned int srcLine);
-//#define SLOT_MAP_ASSERT(expression) (void)((!!(expression)) || (_onAssertionFailed(#expression, __FILE__, (unsigned int)(__LINE__)), 0))
+// #define SLOT_MAP_ASSERT(expression) (void)((!!(expression)) || (_onAssertionFailed(#expression, __FILE__, (unsigned int)(__LINE__)), 0))
 
 // TODO (detailed desc): you could override asserts by defining SLOT_MAP_ASSERT macro
 #if !defined(SLOT_MAP_ASSERT)
@@ -139,9 +138,9 @@ template <typename T> struct slot_map_key64
     static inline constexpr version_t kMaxVersion = 0x0fffffu;
     static inline constexpr index_t kMaxIndex = 0xffffffffu;
     static inline constexpr tag_t kMaxTag = 0x0fffu;
-    
+
     static inline constexpr id_type kIndexMask = 0x00000000ffffffffull;
-    
+
     static inline constexpr id_type kVersionMask = 0x0fffff00000000ull;
     static inline constexpr id_type kVersionShift = 32ull;
 
@@ -723,7 +722,7 @@ template <typename T, typename TKeyType = slot_map_key64<T>, size_t PAGESIZE = 4
 
     void callDtors()
     {
-        size_type numItemsDestroyed = 0;
+        [[maybe_unused]] size_type numItemsDestroyed = 0;
         for (size_t pageIndex = 0; pageIndex < pages.size(); pageIndex++)
         {
             Page& page = pages[pageIndex];
@@ -1173,7 +1172,8 @@ template <typename T, typename TKeyType = slot_map_key64<T>, size_t PAGESIZE = 4
 
     const_values_iterator begin() const noexcept
     {
-        if (pages.empty()) return end();
+        if (pages.empty())
+            return end();
 
         size_type index = 0;
         while (index <= getMaxValidIndex() && isTombstone(index))
@@ -1295,7 +1295,8 @@ template <typename T, typename TKeyType = slot_map_key64<T>, size_t PAGESIZE = 4
 
         const_kv_iterator begin() const noexcept
         {
-            if (slotMap->pages.empty()) return end();
+            if (slotMap->pages.empty())
+                return end();
             size_type index = 0;
             while (index <= slotMap->getMaxValidIndex() && slotMap->isTombstone(index))
             {
