@@ -65,7 +65,7 @@ TEST(SlotMapTest, IdsToAssociativeContainers32)
 
 TEST(SlotMapTest, SlotsDeactivationOnClear)
 {
-    dod::slot_map<int> slotMap;
+    dod::slot_map32<int> slotMap;
     for (int i = 0; i < static_cast<int>(decltype(slotMap)::key::kMaxVersion) + 10; i++)
     {
         for (size_t k = 0; k < 128; k++)
@@ -82,7 +82,7 @@ TEST(SlotMapTest, SlotsDeactivationOnClear)
 
 TEST(SlotMapTest, PageDeactivationOnClear)
 {
-    dod::slot_map64<int, 32, 0> slotMap;
+    dod::slot_map32<int, 32, 0> slotMap;
     size_t numIterations = static_cast<size_t>(decltype(slotMap)::key::kMaxVersion) + 10;
     for (size_t j = 0; j < numIterations; j++)
     {
@@ -144,7 +144,7 @@ TEST(SlotMapTest, InvalidAndMalformedKeys)
 
 TEST(SlotMapTest, WorkingWithRemovedPages)
 {
-    dod::slot_map64<int, 32, 0> slotMap;
+    dod::slot_map32<int, 32, 0> slotMap;
 
     auto id = slotMap.emplace(33);
     slotMap.erase(id);

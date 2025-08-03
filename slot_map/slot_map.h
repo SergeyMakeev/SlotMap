@@ -221,7 +221,7 @@ template <typename T> struct slot_map_key32
 
     static inline constexpr version_t kInvalidVersion = 0x0u;
     static inline constexpr version_t kMinVersion = 0x1u;
-    static inline constexpr version_t kMaxVersion = 0x0400u;
+    static inline constexpr version_t kMaxVersion = 0x03ffu;
     static inline constexpr index_t kMaxIndex = 0x000fffffu;
     static inline constexpr tag_t kMaxTag = 0x03u;
 
@@ -635,7 +635,8 @@ template <typename T, typename TKeyType = slot_map_key64<T>, size_t PAGESIZE = 4
             return true;
         }
         SLOT_MAP_ASSERT(addr.index < kPageSize);
-        return (page.meta[addr.index].tombstone != 0);
+        const Meta& meta = page.meta[addr.index];
+        return (meta.tombstone != 0) || (meta.inactive != 0);
     }
 
     bool isActivePage(PageAddr addr) const noexcept

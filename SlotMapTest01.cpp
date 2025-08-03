@@ -737,8 +737,8 @@ TEST(SlotMapTest, CopyCtor)
 
 TEST(SlotMapTest, CopyAssignmentWithInactivePages)
 {
-    dod::slot_map64<std::string, 32, 0> slotMapA;
-    dod::slot_map64<std::string, 32, 0> slotMapB;
+    dod::slot_map32<std::string, 32, 0> slotMapA;
+    dod::slot_map32<std::string, 32, 0> slotMapB;
 
     // allocate and remove some IDs (to waste a few allocation pages)
     for (size_t i = 0; i < static_cast<size_t>(decltype(slotMapA)::kPageSize) * 2; i++)

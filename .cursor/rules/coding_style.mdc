@@ -1,0 +1,263 @@
+---
+alwaysApply: true
+---
+
+
+# Coding Style Rules
+
+## Documentation and Communication
+- **No diagrams**: Do not create Mermaid diagrams unless explicitly requested
+- **Concise summaries**: Keep explanations brief and focused
+- **No verbose documentation**: Avoid lengthy explanations of obvious concepts
+
+## Code Comments
+- **Minimal commenting**: Only comment tricky or non-obvious code
+- **No redundant comments**: Don't explain what the code obviously does
+- **Focus on why, not what**: When commenting, explain reasoning rather than mechanics
+
+## Code Duplication Elimination
+- **Use template metaprogramming**: Eliminate duplication with templates rather than copying similar classes
+- **Template parameters for behavior**: When applicable use bool template parameters to control const/non-const variants
+- **Type aliases for clean APIs**: Provide familiar names while using unified implementations
+- **Follow standard library patterns**: Use patterns like `std::conditional_t` and SFINAE for type safety
+- **Single source of truth**: Maintain logic in one place to reduce maintenance burden
+
+## Control Flow and Nesting
+- **Prefer early exits**: Use guard clauses and early returns to minimize nesting
+- **Avoid deep conditionals**: Keep the main logic at the top level rather than buried in if statements
+- **Handle edge cases first**: Deal with special cases early and return, leaving the main path unindented
+- **Linear flow**: Structure code so the primary logic flows top-to-bottom without deep nesting
+
+## Examples
+
+### ❌ Bad (over-commented):
+```cpp
+// Increment the size member variable
+++m_size;
+
+// Loop through all fields
+for (size_t i = 0; i < num_fields; ++i) {
+    // Calculate the field offset
+    layout.field_offsets[i] = layout.total_size;
+}
+```
+
+### ✅ Good (minimal comments):
+```cpp
+++m_size;
+
+for (size_t i = 0; i < num_fields; ++i) {
+    layout.field_offsets[i] = layout.total_size;
+    layout.total_size += capacity * s_field_layout.element_sizes[i];
+    // Align for optimal cache performance
+    layout.total_size = (layout.total_size + CPU_CACHE_LINE_SIZE - 1) & ~(CPU_CACHE_LINE_SIZE - 1);
+}
+```
+
+### ❌ Bad (duplicated iterator classes):
+```cpp
+class my_iterator {
+    T* current_;
+    // ... 50 lines of iterator implementation
+};
+
+class my_const_iterator {
+    const T* current_;
+    // ... 50 lines of nearly identical iterator implementation
+};
+```
+
+### ✅ Good (unified template implementation):
+```cpp
+template<bool IsConst>
+class my_iterator_impl {
+    using pointer = std::conditional_t<IsConst, const T*, T*>;
+    using reference = std::conditional_t<IsConst, const T&, T&>;
+    
+    pointer current_;
+    // ... single implementation that works for both cases
+    
+    // Allow non-const to const conversion
+    template<bool OtherIsConst, typename = std::enable_if_t<IsConst && !OtherIsConst>>
+    my_iterator_impl(const my_iterator_impl<OtherIsConst>& other) : current_(other.current_) {}
+};
+
+// Clean API through type aliases
+using my_iterator = my_iterator_impl<false>;
+using my_const_iterator = my_iterator_impl<true>;
+```
+
+### ❌ Bad (deep nesting):
+```cpp
+list_node(list_node&& other) noexcept
+{
+    if (other.is_linked())
+    {
+        // Take over the other node's position in the list
+        next_ = other.next_;
+        prev_ = other.prev_;
+        
+        // In a circular list, linked nodes are guaranteed to have valid pointers when the node is linked
+        assert(next_ != nullptr && prev_ != nullptr);
+        next_->prev_ = this;
+        prev_->next_ = this;
+        
+        // Leave other node in unlinked state
+        other.next_ = nullptr;
+        other.prev_ = nullptr;
+    }
+}
+```
+
+### ✅ Good (early exit, linear flow):
+```cpp
+list_node(list_node&& other) noexcept
+{
+    if (!other.is_linked())
+    {
+        return;
+    }
+
+    // Take over the other node's position in the list
+    next_ = other.next_;
+    prev_ = other.prev_;
+    
+    // In a circular list, linked nodes are guaranteed to have valid pointers when the node is linked
+    assert(next_ != nullptr && prev_ != nullptr);
+    next_->prev_ = this;
+    prev_->next_ = this;
+    
+    // Leave other node in unlinked state
+    other.next_ = nullptr;
+    other.prev_ = nullptr;
+}
+``` 
+# Coding Style Rules
+
+## Documentation and Communication
+- **No diagrams**: Do not create Mermaid diagrams unless explicitly requested
+- **Concise summaries**: Keep explanations brief and focused
+- **No verbose documentation**: Avoid lengthy explanations of obvious concepts
+
+## Code Comments
+- **Minimal commenting**: Only comment tricky or non-obvious code
+- **No redundant comments**: Don't explain what the code obviously does
+- **Focus on why, not what**: When commenting, explain reasoning rather than mechanics
+
+## Code Duplication Elimination
+- **Use template metaprogramming**: Eliminate duplication with templates rather than copying similar classes
+- **Template parameters for behavior**: When applicable use bool template parameters to control const/non-const variants
+- **Type aliases for clean APIs**: Provide familiar names while using unified implementations
+- **Follow standard library patterns**: Use patterns like `std::conditional_t` and SFINAE for type safety
+- **Single source of truth**: Maintain logic in one place to reduce maintenance burden
+
+## Control Flow and Nesting
+- **Prefer early exits**: Use guard clauses and early returns to minimize nesting
+- **Avoid deep conditionals**: Keep the main logic at the top level rather than buried in if statements
+- **Handle edge cases first**: Deal with special cases early and return, leaving the main path unindented
+- **Linear flow**: Structure code so the primary logic flows top-to-bottom without deep nesting
+
+## Examples
+
+### ❌ Bad (over-commented):
+```cpp
+// Increment the size member variable
+++m_size;
+
+// Loop through all fields
+for (size_t i = 0; i < num_fields; ++i) {
+    // Calculate the field offset
+    layout.field_offsets[i] = layout.total_size;
+}
+```
+
+### ✅ Good (minimal comments):
+```cpp
+++m_size;
+
+for (size_t i = 0; i < num_fields; ++i) {
+    layout.field_offsets[i] = layout.total_size;
+    layout.total_size += capacity * s_field_layout.element_sizes[i];
+    // Align for optimal cache performance
+    layout.total_size = (layout.total_size + CPU_CACHE_LINE_SIZE - 1) & ~(CPU_CACHE_LINE_SIZE - 1);
+}
+```
+
+### ❌ Bad (duplicated iterator classes):
+```cpp
+class my_iterator {
+    T* current_;
+    // ... 50 lines of iterator implementation
+};
+
+class my_const_iterator {
+    const T* current_;
+    // ... 50 lines of nearly identical iterator implementation
+};
+```
+
+### ✅ Good (unified template implementation):
+```cpp
+template<bool IsConst>
+class my_iterator_impl {
+    using pointer = std::conditional_t<IsConst, const T*, T*>;
+    using reference = std::conditional_t<IsConst, const T&, T&>;
+    
+    pointer current_;
+    // ... single implementation that works for both cases
+    
+    // Allow non-const to const conversion
+    template<bool OtherIsConst, typename = std::enable_if_t<IsConst && !OtherIsConst>>
+    my_iterator_impl(const my_iterator_impl<OtherIsConst>& other) : current_(other.current_) {}
+};
+
+// Clean API through type aliases
+using my_iterator = my_iterator_impl<false>;
+using my_const_iterator = my_iterator_impl<true>;
+```
+
+### ❌ Bad (deep nesting):
+```cpp
+list_node(list_node&& other) noexcept
+{
+    if (other.is_linked())
+    {
+        // Take over the other node's position in the list
+        next_ = other.next_;
+        prev_ = other.prev_;
+        
+        // In a circular list, linked nodes are guaranteed to have valid pointers when the node is linked
+        assert(next_ != nullptr && prev_ != nullptr);
+        next_->prev_ = this;
+        prev_->next_ = this;
+        
+        // Leave other node in unlinked state
+        other.next_ = nullptr;
+        other.prev_ = nullptr;
+    }
+}
+```
+
+### ✅ Good (early exit, linear flow):
+```cpp
+list_node(list_node&& other) noexcept
+{
+    if (!other.is_linked())
+    {
+        return;
+    }
+
+    // Take over the other node's position in the list
+    next_ = other.next_;
+    prev_ = other.prev_;
+    
+    // In a circular list, linked nodes are guaranteed to have valid pointers when the node is linked
+    assert(next_ != nullptr && prev_ != nullptr);
+    next_->prev_ = this;
+    prev_->next_ = this;
+    
+    // Leave other node in unlinked state
+    other.next_ = nullptr;
+    other.prev_ = nullptr;
+}
+``` 

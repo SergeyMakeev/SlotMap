@@ -4,7 +4,7 @@
 
 TEST(SlotMapTest, BasicIterators)
 {
-    dod::slot_map64<int, 32, 0> slotMap;
+    dod::slot_map32<int, 32, 0> slotMap;
 
     // allocate and remove some IDs (to waste a few allocation pages)
     for (size_t i = 0; i < static_cast<size_t>(decltype(slotMap)::kPageSize) * 2; i++)
@@ -18,7 +18,7 @@ TEST(SlotMapTest, BasicIterators)
 
     EXPECT_EQ(slotMap.size(), uint32_t(0));
 
-    std::unordered_map<dod::slot_map<int>::key, int> keyToValue;
+    std::unordered_map<dod::slot_map32<int>::key, int> keyToValue;
     uint32_t numElements = 16384;
     for (int j = 0; j < int(numElements); j++)
     {

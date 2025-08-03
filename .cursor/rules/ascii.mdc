@@ -1,0 +1,89 @@
+---
+alwaysApply: true
+---
+
+# Cursor Rules for LargeCoordinates Project
+
+## Character Encoding Rules
+- **NEVER use non-ASCII characters in code**: All code files (*.h, *.cpp, *.c, etc.) must use only ASCII characters (0x00-0x7F)
+- **Replace special symbols with ASCII equivalents**:
+  - Use `+/-` instead of plus-minus symbol
+  - Use `->` instead of arrow symbols
+  - Use `<=` instead of less-than-or-equal symbol
+  - Use `>=` instead of greater-than-or-equal symbol
+  - Use `!=` instead of not-equal symbol
+  - Use `*` instead of multiplication symbol
+  - Use `/` instead of division symbol
+  - Use `deg` instead of degree symbol
+  - Use `alpha`, `beta`, `gamma` instead of Greek letters
+
+## Code Style Consistency
+- Use standard ASCII punctuation and operators
+- Avoid Unicode quotes, dashes, or mathematical symbols
+- When documenting mathematical concepts, use ASCII representations
+- Comments should use plain ASCII text only
+
+## Examples
+
+### BAD (non-ASCII):
+```cpp
+// Coordinate range: +/-1024 units (using plus-minus symbol)
+// Temperature: 25 deg C (using degree symbol)  
+// Angle: pi/4 radians (using pi symbol)
+float value = alpha * beta; (using Greek letters)
+```
+
+### GOOD (ASCII only):
+```cpp
+// Coordinate range: +/-1024 units  
+// Temperature: 25 deg C
+// Angle: pi/4 radians
+float value = alpha * beta;
+```
+
+## Enforcement
+- All code must pass ASCII-only validation
+- Use regex `[^\x00-\x7F]` to detect non-ASCII characters
+- Build scripts should reject files containing non-ASCII characters # Cursor Rules for LargeCoordinates Project
+
+## Character Encoding Rules
+- **NEVER use non-ASCII characters in code**: All code files (*.h, *.cpp, *.c, etc.) must use only ASCII characters (0x00-0x7F)
+- **Replace special symbols with ASCII equivalents**:
+  - Use `+/-` instead of plus-minus symbol
+  - Use `->` instead of arrow symbols
+  - Use `<=` instead of less-than-or-equal symbol
+  - Use `>=` instead of greater-than-or-equal symbol
+  - Use `!=` instead of not-equal symbol
+  - Use `*` instead of multiplication symbol
+  - Use `/` instead of division symbol
+  - Use `deg` instead of degree symbol
+  - Use `alpha`, `beta`, `gamma` instead of Greek letters
+
+## Code Style Consistency
+- Use standard ASCII punctuation and operators
+- Avoid Unicode quotes, dashes, or mathematical symbols
+- When documenting mathematical concepts, use ASCII representations
+- Comments should use plain ASCII text only
+
+## Examples
+
+### BAD (non-ASCII):
+```cpp
+// Coordinate range: +/-1024 units (using plus-minus symbol)
+// Temperature: 25 deg C (using degree symbol)  
+// Angle: pi/4 radians (using pi symbol)
+float value = alpha * beta; (using Greek letters)
+```
+
+### GOOD (ASCII only):
+```cpp
+// Coordinate range: +/-1024 units  
+// Temperature: 25 deg C
+// Angle: pi/4 radians
+float value = alpha * beta;
+```
+
+## Enforcement
+- All code must pass ASCII-only validation
+- Use regex `[^\x00-\x7F]` to detect non-ASCII characters
+- Build scripts should reject files containing non-ASCII characters 

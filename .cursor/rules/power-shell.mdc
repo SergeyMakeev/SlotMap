@@ -1,0 +1,41 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+## PowerShell Environment Detection and Syntax
+
+When working in Windows environments or when the shell is PowerShell (indicated by `.exe` in shell path, Windows OS, or PowerShell prompts like `PS C:\>`):
+
+### Command Chaining
+- **NEVER use `&&` for command chaining** - this is bash syntax and invalid in PowerShell
+- Use **semicolons (`;`)** to separate commands on the same line: `command1; command2; command3`
+- Or use **separate run_terminal_cmd calls** for each command when chaining might fail
+
+### PowerShell-Specific Syntax
+- Use PowerShell cmdlets when appropriate: `Get-ChildItem` instead of `ls`, `Set-Location` instead of `cd`
+- Use PowerShell path syntax: `\` for separators, not `/`
+- Use PowerShell variables: `$env:PATH` instead of `$PATH`
+- Use PowerShell operators: `-eq`, `-ne`, `-gt` instead of `==`, `!=`, `>`
+
+### Directory Operations
+- Use `New-Item -ItemType Directory -Path "dirname"` or `mkdir dirname` instead of `mkdir -p`
+- Use `Test-Path` to check if files/directories exist
+- Use `Remove-Item` for deletions
+
+### Example Corrections
+- ❌ `cd build && cmake .. && cmake --build .`
+- ✅ `cd build; cmake ..; cmake --build .` OR separate commands
+- ❌ `ls -la`  
+- ✅ `Get-ChildItem` or `ls` (PowerShell alias)
+- ❌ `export VAR=value`
+- ✅ `$env:VAR = "value"`
+
+### Detection Indicators
+- Shell path contains `powershell.exe`
+- OS is `win32` or Windows
+- Prompt shows `PS C:\>` format
+- User mentions PowerShell explicitly
+
+
+Always prioritize PowerShell native syntax over bash/Linux equivalents when in Windows/PowerShell environments.
