@@ -1,231 +1,408 @@
 # Slot Map
 
-[![Actions Status](https://github.com/SergeyMakeev/slot_map/workflows/build/badge.svg)](https://github.com/SergeyMakeev/slot_map/actions)
-[![Build status](https://ci.appveyor.com/api/projects/status/i00kv17e3ia5jr7q?svg=true)](https://ci.appveyor.com/project/SergeyMakeev/slot-map)
+
+[![License](https://img.shields.io/github/license/SergeyMakeev/CircularBuffer)](LICENSE)
+[![ci](https://github.com/SergeyMakeev/CircularBuffer/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/SergeyMakeev/CircularBuffer/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/SergeyMakeev/slot_map/branch/main/graph/badge.svg?token=3GRAFTRYQU)](https://codecov.io/gh/SergeyMakeev/slot_map)
-![MIT](https://img.shields.io/badge/license-MIT-blue.svg)
 
-A Slot Map is a high-performance associative container with persistent unique keys to access stored values. Upon insertion, a key is returned that can be used to later access or remove the values. Insertion, removal, and access are all guaranteed to take `O(1)` time (best, worst, and average case)  
-Great for storing collections of objects that need stable, safe references but have no clear ownership.
+A Slot Map is a high-performance associative container with persistent unique keys to access stored values. It's designed for performance-critical applications where stable references, O(1) operations, and memory efficiency are essential.
 
-The difference between a `std::unordered_map` and a `dod::slot_map` is that the slot map generates and returns the key when inserting a value. A key is always unique and will only refer to the value that was inserted.
+## Table of Contents
 
-  Usage example:
-  ```cpp
-  slot_map<std::string> strings;
-  auto red = strings.emplace("Red");
-  auto green = strings.emplace("Green");
-  auto blue = strings.emplace("Blue");
+- [What is a Slot Map?](#what-is-a-slot-map)
+- [Key Features](#key-features)
+- [Quick Start](#quick-start)
+- [Building](#building)
+- [API Reference](#api-reference)
+- [Key Types](#key-types)
+- [Advanced Features](#advanced-features)
+- [Performance](#performance)
+- [Implementation Details](#implementation-details)
+- [Thread Safety](#thread-safety)
+- [Examples](#examples)
+- [References](#references)
 
-  const std::string* val1 = strings.get(red);
-  if (val1)
-  {
-    printf("red = '%s'\n", val1->c_str());
-  }
+## What is a Slot Map?
 
-  strings.erase(green);
-  printf("%d\n", strings.has(green));
-  printf("%d\n", strings.has(blue));
-  ```
+A Slot Map solves the problem of storing collections of objects that need stable, safe references but have no clear ownership hierarchy. Unlike `std::unordered_map` where you provide keys, a slot map **generates** unique keys when you insert values.
 
-  Output:
-  ```
-  red = 'Red'
-  0
-  1
-  ```
-  
-# Implementation details
+**Key differences from `std::unordered_map`:**
+- Slot map generates keys for you (no key collisions)
+- Guaranteed O(1) insertion, removal, and access
+- Memory-stable pointers (values never move in memory)
+- Automatic key invalidation when items are removed
+- Efficient memory layout with page-based allocation
 
-The slot map container will allocate memory in pages (default page size = 4096 elements) to avoid memory spikes during growth and be able to deallocate pages that are no longer needed.
-Also, the page-based memory allocator is very important since it guarantees "pointers stability"; hence, we never move values in memory.
+**Perfect for:**
+- Game entities and component systems
+- Resource management (textures, sounds, etc.)
+- Object pools and handle-based systems
+- Any scenario requiring safe, stable references
 
+## Key Features
 
-Keys are always uses `uint64_t/uint32_t` (configurable) and technically typless, but we "artificially" make them typed to get a few extra compile-time checks.  
-i.e., the following code will produce a compiler error
+- **O(1) Performance**: Insertion, removal, and access are all O(1) in best, worst, and average case
+- **Memory Stability**: Pointers to values remain valid until explicitly removed
+- **Safe References**: Keys automatically become invalid when items are removed
+- **Memory Efficient**: Page-based allocation prevents memory fragmentation
+- **Type Safety**: Keys are typed to prevent mixing between different slot maps
+- **Iteration Support**: Both value-only and key-value iteration
+- **Custom Allocators**: Support for custom memory allocators
+- **Header Only**: Single header file, easy to integrate
+
+## Quick Start
+
 ```cpp
-slot_map<std::string> strings;
-slot_map<int> numbers;
-slot_map<int>::key numKey = numbers.emplace(3);
-const std::string* value = strings.get(numKey);   //  <---- can not use slot_map<int>::key to index slot_map<std::string> !
+#include "slot_map.h"
+
+// Create a slot map for strings
+dod::slot_map<std::string> strings;
+
+// Insert values and get unique keys
+auto red_key = strings.emplace("Red");
+auto green_key = strings.emplace("Green");
+auto blue_key = strings.emplace("Blue");
+
+// Access values using keys
+const std::string* red_value = strings.get(red_key);
+if (red_value) {
+    printf("Color: %s\n", red_value->c_str());  // Output: Color: Red
+}
+
+// Remove a value
+strings.erase(green_key);
+
+// Check if keys are still valid
+printf("Green exists: %d\n", strings.has_key(green_key));  // Output: 0
+printf("Blue exists: %d\n", strings.has_key(blue_key));    // Output: 1
+
+// Iterate over all values
+for (const auto& color : strings) {
+    printf("Color: %s\n", color.c_str());
+}
+
+// Iterate over key-value pairs
+for (const auto& [key, color] : strings.items()) {
+    printf("Key: %" PRIslotkey ", Color: %s\n", uint64_t(key), color.get().c_str());
+}
 ```
 
-The keys can be converted to/from their numeric types if you do not need additional type checks.
+## Building
+
+### Requirements
+- C++17 or later
+- CMake 3.10 or later (for building tests)
+
+### Header-Only Integration
+Simply include the header file in your project:
+
 ```cpp
-slot_map<int> numbers;
-slot_map<int>::key numKey = numbers.emplace(3);
-uint64_t rawKey = numKey;  // convert to numeric type (like cast pointer to void*)
-...
-slot_map<int>::key numKey2{rawKey}; // create key from numeric type
+#include "slot_map/slot_map.h"
 ```
 
-When a slot is reused, its version is automatically incremented (to invalidate all existing keys that refers to the same slot).
-But since we only use 20-bits *(10-bits for 32 bit keys)* for version counter, there is a possibility that the version counter will wrap around,
-and a new item will get the same key as a removed item.
+### Building Tests
+```bash
+git clone https://github.com/SergeyMakeev/slot_map.git
+cd slot_map
+mkdir build && cd build
+cmake ..
+cmake --build .
 
-To mitigate this potential issue, once the version counter overflows, we disable that slot so that no new keys are returned for this slot
-(this gives us a guarantee that there are no key collisions)
-
-To prevent version overflow from happening too often, we need to ensure that we don't reuse the same slot too often.
-So we do not reuse recently freed slot-indices as long as their number is below a certain threshold (`kMinFreeIndices = 64`).
-
-Keys also can carry a few extra bits of information provided by a user that we called `tag`.  
-That might be handy to add application-specific data to keys.
-
-For example:
-```cpp
-  slot_map<std::string> strings;
-  auto red = strings.emplace("Red");
-  red.set_tag(13);
-  
-  auto tag = red.get_tag();
-  assert(tag == 13);
+# Run tests
+./SlotMapTest01
+./SlotMapTest02
+./SlotMapTest03
+./SlotMapTest04
 ```
 
-Here is how a key structure looks like internally
-
-64-bit key type
-
-| Component      |  Number of bits        |
-| ---------------|------------------------|
-| tag            |  12                    |
-| version        |  20 (0..1,048,575      |
-| index          |  32 (0..4,294,967,295) |
-
-32-bit key type
-
-| Component      |  Number of bits     |
-| ---------------|---------------------|
-| tag            |  2                  |
-| version        |  10 (0..1023)       |
-| index          |  20 (0..1,048,575)  |
-
-Note: To use your custom memory allocator define `SLOT_MAP_ALLOC`/`SLOT_MAP_FREE` before including `"slot_map.h"`
+### Custom Memory Allocator
+Define custom allocator macros before including the header:
 
 ```cpp
-#define SLOT_MAP_ALLOC(sizeInBytes, alignment) aligned_alloc(alignment, sizeInBytes)
-#define SLOT_MAP_FREE(ptr) free(ptr)
+#define SLOT_MAP_ALLOC(sizeInBytes, alignment) your_aligned_alloc(alignment, sizeInBytes)
+#define SLOT_MAP_FREE(ptr) your_free(ptr)
 #include "slot_map.h"
 ```
 
+## API Reference
 
-# API
-  
-`bool has_key(key k) const noexcept`  
-Returns true if the slot map contains a specific key  
+### Core Operations
+
+#### `emplace(Args&&... args) -> key`
+Constructs element in-place and returns a unique key.
+```cpp
+auto key = slot_map.emplace("Hello", "World");  // Construct string from args
+```
+
+#### `get(key k) -> T*` / `get(key k) const -> const T*`
+Returns pointer to value or `nullptr` if key is invalid.
+```cpp
+const std::string* value = slot_map.get(key);
+```
+
+#### `has_key(key k) const -> bool`
+Returns `true` if the key exists and is valid.
+```cpp
+if (slot_map.has_key(key)) { /* key is valid */ }
+```
+
+#### `erase(key k)`
+Removes element if key exists. Key becomes invalid.
+```cpp
+slot_map.erase(key);
+```
+
+#### `pop(key k) -> std::optional<T>`
+Removes and returns the value if key exists.
+```cpp
+auto value = slot_map.pop(key);  // Returns optional<T>
+```
+
+### Container Operations
+
+#### `size() const -> size_type`
+Returns number of elements.
+
+#### `empty() const -> bool`
+Returns `true` if container is empty.
+
+#### `clear()`
+Removes all elements but keeps allocated memory. Invalidates all keys.
+
+#### `reset()`
+Removes all elements and releases memory. **Warning**: Only call when no keys are in use.
+
+#### `swap(slot_map& other)`
+Exchanges contents with another slot map.
+
+### Iteration
+
+#### Value iteration
+```cpp
+for (const auto& value : slot_map) {
+    // Process value
+}
+```
+
+#### Key-value iteration
+```cpp
+for (const auto& [key, value] : slot_map.items()) {
+    // Process key and value
+}
+```
+
+### Debug and Statistics
+
+#### `debug_stats() const -> Stats`
+Returns internal statistics (O(n) complexity).
+```cpp
+auto stats = slot_map.debug_stats();
+printf("Active items: %u\n", stats.numAliveItems);
+```
+
+## Key Types
+
+### 64-bit Keys (Default)
+```cpp
+dod::slot_map<T>        // Uses 64-bit keys
+dod::slot_map64<T>      // Explicit 64-bit keys
+```
+
+| Component | Bits | Range |
+|-----------|------|-------|
+| Tag       | 12   | 0..4,095 |
+| Version   | 20   | 0..1,048,575 |
+| Index     | 32   | 0..4,294,967,295 |
+
+### 32-bit Keys
+```cpp
+dod::slot_map32<T>      // Uses 32-bit keys
+```
+
+| Component | Bits | Range |
+|-----------|------|-------|
+| Tag       | 2    | 0..3 |
+| Version   | 10   | 0..1,023 |
+| Index     | 20   | 0..1,048,575 |
+
+### Key Operations
+```cpp
+auto key = slot_map.emplace(value);
+
+// Type-safe: this won't compile
+// slot_map<int>::key int_key = int_map.emplace(42);
+// string_map.get(int_key);  // Compiler error!
+
+// Convert to/from raw numeric type
+uint64_t raw_key = key;                    // Implicit conversion
+slot_map<T>::key restored_key{raw_key};    // Explicit construction
+```
+
+## Advanced Features
+
+### Tags
+Keys can store small amounts of user data:
+
+```cpp
+auto key = slot_map.emplace("Value");
+key.set_tag(42);                    // Store application data
+auto tag = key.get_tag();           // Retrieve: tag == 42
+
+// Tag limits:
+// 64-bit keys: 0..4,095 (12 bits)
+// 32-bit keys: 0..3 (2 bits)
+```
+
+### Custom Page Size
+Adjust memory allocation granularity:
+
+```cpp
+// Default page size is 4096 elements
+dod::slot_map<T, dod::slot_map_key64<T>, 8192> large_pages;
+dod::slot_map<T, dod::slot_map_key64<T>, 1024> small_pages;
+```
+
+### Custom Free Indices Threshold
+Control when slot indices are reused:
+
+```cpp
+// Default threshold is 64
+dod::slot_map<T, dod::slot_map_key64<T>, 4096, 128> conservative_reuse;
+```
+
+## Performance
+
+### Time Complexity
+- **Insertion**: O(1) amortized
+- **Removal**: O(1)
+- **Access**: O(1)
+- **Iteration**: O(n) where n is number of alive elements
+
+### Memory Characteristics
+- **Page-based allocation**: 4096 elements per page by default
+- **Pointer stability**: Values never move once allocated
+- **Memory efficiency**: Pages are released when all slots become inactive
+- **Cache-friendly**: Sequential iteration over alive elements only
+
+## Implementation Details
+
+### Version Overflow Protection
+When a slot's version counter reaches maximum value:
+1. The slot is marked as inactive
+2. No new keys will be generated for this slot
+3. Guarantees no key collisions even with version wrap-around
+
+### Free Index Management
+- Recently freed slots aren't immediately reused
+- Minimum threshold (default 64) prevents rapid version increments
+- Balances memory usage with collision avoidance
+
+### Page Management
+- Elements are allocated in pages (default 4096 elements)
+- Pages are released when all slots in a page become inactive
+- Provides memory stability and prevents fragmentation
+
+## Thread Safety
+
+**Slot maps are NOT thread-safe.** External synchronization is required for:
+- Concurrent access from multiple threads
+- Reader-writer scenarios
+
+For thread-safe usage:
+```cpp
+std::shared_mutex mutex;
+dod::slot_map<T> slot_map;
+
+// Reader
+{
+    std::shared_lock lock(mutex);
+    auto value = slot_map.get(key);
+}
+
+// Writer  
+{
+    std::unique_lock lock(mutex);
+    auto key = slot_map.emplace(value);
+}
+```
+
+## Examples
+
+### Entity Component System
+```cpp
+struct Transform { float x, y, z; };
+struct Health { int hp, max_hp; };
+
+dod::slot_map<Transform> transforms;
+dod::slot_map<Health> healths;
+
+// Create entity
+auto entity_id = generate_entity_id();
+auto transform_key = transforms.emplace(Transform{0, 0, 0});
+auto health_key = healths.emplace(Health{100, 100});
+
+// Store keys in entity
+register_component(entity_id, transform_key);
+register_component(entity_id, health_key);
+```
+
+### Resource Management
+```cpp
+dod::slot_map<Texture> textures;
+dod::slot_map<Sound> sounds;
+
+class ResourceManager {
+    using TextureHandle = dod::slot_map<Texture>::key;
+    using SoundHandle = dod::slot_map<Sound>::key;
     
-`void reset()`  
-Clears the slot map and releases any allocated memory.  
-Note: By calling this function, you must guarantee that no handles are in use!  
-Otherwise calling this function might be dangerous and lead to key "collisions".  
-You might consider using "clear()" instead.  
-  
-`void clear()`  
-Clears the slot map but keeps the allocated memory for reuse.  
-Automatically increases version for all the removed elements (the same as calling "erase()" for all existing elements)  
-      
-`const T* get(key k) const noexcept`  
-If key exists returns a const pointer to the value corresponding to the given key or returns null elsewere.  
-      
-`T* get(key k)`  
-If key exists returns a pointer to the value corresponding to the given key or returns null elsewere.  
-      
-`key emplace(Args&&... args)`  
-Constructs element in-place and returns a unique key that can be used to access this value.  
-      
-`void erase(key k)`  
-Removes element (if such key exists) from the slot map.  
-      
-`std::optional<T> pop(key k)`  
-Removes element (if such key exists) from the slot map, returning the value at the key if the key was not previously removed.  
-      
-`bool empty() const noexcept`  
-Returns true if the slot map is empty.  
-   
-`size_type size() const noexcept`  
-Returns the number of elements in the slot map.  
-
-`void swap(slot_map& other) noexcept`  
-Exchanges the content of the slot map by the content of another slot map object of the same type.  
-  
-`slot_map(const slot_map& other)`  
-Copy constructor  
-
-`slot_map& operator=(const slot_map& other)`  
-Copy assignment  
-
-`slot_map(slot_map&& other) noexcept`  
-Move constructor
-
-`slot_map& operator=(slot_map&& other) noexcept`  
-Move asignment
-
-
-`const_values_iterator begin() const noexcept`  
-`const_values_iterator end() const noexcept`  
-Const values iterator
-
-```cpp
-for (const auto& value : slotMap)
-{
- ...
-}
+    TextureHandle load_texture(const std::string& path) {
+        return textures.emplace(load_texture_from_file(path));
+    }
+    
+    const Texture* get_texture(TextureHandle handle) {
+        return textures.get(handle);
+    }
+};
 ```
 
-`Items items() const noexcept`  
-Const key/value iterator
-
+### Object Pool with Versioning
 ```cpp
-for (const auto& [key, value] : slotMap.items())
-{
-...
-}
+class BulletPool {
+    struct Bullet { float x, y, dx, dy; bool active; };
+    dod::slot_map<Bullet> bullets;
+    
+public:
+    using BulletHandle = dod::slot_map<Bullet>::key;
+    
+    BulletHandle spawn(float x, float y, float dx, float dy) {
+        return bullets.emplace(Bullet{x, y, dx, dy, true});
+    }
+    
+    void update() {
+        for (auto& bullet : bullets) {
+            if (bullet.active) {
+                bullet.x += bullet.dx;
+                bullet.y += bullet.dy;
+            }
+        }
+    }
+    
+    void destroy(BulletHandle handle) {
+        bullets.erase(handle);  // Handle becomes invalid automatically
+    }
+};
 ```
-  
-# References
 
-  Sean Middleditch  
-  Data Structures for Game Developers: The Slot Map, 2013  
-  https://web.archive.org/web/20180121142549/http://seanmiddleditch.com/data-structures-for-game-developers-the-slot-map/ 
-  
-  Niklas Gray  
-  Building a Data-Oriented Entity System (part 1), 2014  
-  http://bitsquid.blogspot.com/2014/08/building-data-oriented-entity-system.html  
+## References
 
-  Noel Llopis  
-  Managing Data Relationships, 2010  
-  https://gamesfromwithin.com/managing-data-relationships  
-
-  Stefan Reinalter  
-  Adventures in data-oriented design - Part 3c: External References, 2013  
-  https://blog.molecular-matters.com/2013/07/24/adventures-in-data-oriented-design-part-3c-external-references/  
-
-  Niklas Gray  
-  Managing Decoupling Part 4 - The ID Lookup Table, 2011  
-  https://bitsquid.blogspot.com/2011/09/managing-decoupling-part-4-id-lookup.html  
-
-  Sander Mertens  
-  Making the most of ECS identifiers, 2020  
-  https://ajmmertens.medium.com/doing-a-lot-with-a-little-ecs-identifiers-25a72bd2647  
-
-  Michele Caini  
-  ECS back and forth. Part 9 - Sparse sets and EnTT, 2020  
-  https://skypjack.github.io/2020-08-02-ecs-baf-part-9/  
-
-  Andre Weissflog  
-  Handles are the better pointers, 2018  
-  https://floooh.github.io/2018/06/17/handles-vs-pointers.html  
-
-  Allan Deutsch  
-  C++Now 2017: "The Slot Map Data Structure", 2017  
-  https://www.youtube.com/watch?v=SHaAR7XPtNU  
-
-  Jeff Gates  
-  Init, Update, Draw - Data Arrays, 2012  
-  https://greysphere.tumblr.com/post/31601463396/data-arrays  
-  
-  Niklas Gray  
-  Data Structures Part 1: Bulk Data, 2019  
-  https://ourmachinery.com/post/data-structures-part-1-bulk-data/  
-  
-  
+- Sean Middleditch: [Data Structures for Game Developers: The Slot Map](https://web.archive.org/web/20180121142549/http://seanmiddleditch.com/data-structures-for-game-developers-the-slot-map/), 2013
+- Niklas Gray: [Building a Data-Oriented Entity System](http://bitsquid.blogspot.com/2014/08/building-data-oriented-entity-system.html), 2014
+- Noel Llopis: [Managing Data Relationships](https://gamesfromwithin.com/managing-data-relationships), 2010
+- Stefan Reinalter: [Adventures in Data-Oriented Design - External References](https://blog.molecular-matters.com/2013/07/24/adventures-in-data-oriented-design-part-3c-external-references/), 2013
+- Niklas Gray: [Managing Decoupling Part 4 - The ID Lookup Table](https://bitsquid.blogspot.com/2011/09/managing-decoupling-part-4-id-lookup.html), 2011
+- Sander Mertens: [Making the Most of ECS Identifiers](https://ajmmertens.medium.com/doing-a-lot-with-a-little-ecs-identifiers-25a72bd2647), 2020
+- Michele Caini: [ECS back and forth. Part 9 - Sparse Sets and EnTT](https://skypjack.github.io/2020-08-02-ecs-baf-part-9/), 2020
+- Andre Weissflog: [Handles are the Better Pointers](https://floooh.github.io/2018/06/17/handles-vs-pointers.html), 2018
+- Allan Deutsch: [C++Now 2017: "The Slot Map Data Structure"](https://www.youtube.com/watch?v=SHaAR7XPtNU), 2017
+- Jeff Gates: [Init, Update, Draw - Data Arrays](https://greysphere.tumblr.com/post/31601463396/data-arrays), 2012
+- Niklas Gray: [Data Structures Part 1: Bulk Data](https://ourmachinery.com/post/data-structures-part-1-bulk-data/), 2019
