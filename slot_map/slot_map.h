@@ -858,8 +858,14 @@ template <typename T, typename TKeyType = slot_map_key64<T>, size_t PAGESIZE = 4
             return false;
         }
         const Meta& m = getMetaByAddr(addr);
+        if (m.tombstone != 0 || m.inactive != 0)
+        {
+            return false;
+        }
         return (m.version == version);
     }
+
+    bool contains(key k) const noexcept { return has_key(k); }
 
     /*
       Clears the slot map and releases any allocated memory.
@@ -1116,40 +1122,52 @@ template <typename T, typename TKeyType = slot_map_key64<T>, size_t PAGESIZE = 4
     // for(const auto& kv : slot_map.items()) {} // key/value
     // for(const auto& v : slot_map) {} // values only
 
-    // values iterator...................................
-    class const_values_iterator
+    // values iterator implementation...................................
+    template <bool IsConst> class values_iterator_impl
     {
       private:
-        const T* getCurrent() const noexcept
+        using slot_map_ptr = std::conditional_t<IsConst, const slot_map*, slot_map*>;
+        using value_ptr = std::conditional_t<IsConst, const T*, T*>;
+        using value_ref = std::conditional_t<IsConst, const T&, T&>;
+        using storage_ref = std::conditional_t<IsConst, const ValueStorage&, ValueStorage&>;
+
+        value_ptr getCurrent() const noexcept
         {
             SLOT_MAP_ASSERT(currentIndex <= slotMap->getMaxValidIndex());
             PageAddr addr = slotMap->getAddrFromIndex(currentIndex);
             SLOT_MAP_ASSERT(slotMap->isActivePage(addr));
-            const ValueStorage& v = slotMap->getValueByAddr(addr);
-            const T* value = reinterpret_cast<const T*>(&v);
-            return value;
+            storage_ref v = slotMap->getValueByAddr(addr);
+            return reinterpret_cast<value_ptr>(&v);
         }
 
       public:
-        explicit const_values_iterator(const slot_map* _slotMap, size_type index) noexcept
+        explicit values_iterator_impl(slot_map_ptr _slotMap, size_type index) noexcept
             : slotMap(_slotMap)
             , currentIndex(index)
         {
         }
 
-        const T& operator*() const noexcept { return *getCurrent(); }
-        const T* operator->() const noexcept { return getCurrent(); }
+        // Allow non-const to const conversion
+        template <bool OtherIsConst, typename = std::enable_if_t<IsConst && !OtherIsConst>>
+        values_iterator_impl(const values_iterator_impl<OtherIsConst>& other) noexcept
+            : slotMap(other.slotMap)
+            , currentIndex(other.currentIndex)
+        {
+        }
 
-        bool operator==(const const_values_iterator& other) const noexcept
+        value_ref operator*() const noexcept { return *getCurrent(); }
+        value_ptr operator->() const noexcept { return getCurrent(); }
+
+        bool operator==(const values_iterator_impl& other) const noexcept
         {
             return slotMap == other.slotMap && currentIndex == other.currentIndex;
         }
-        bool operator!=(const const_values_iterator& other) const noexcept
+        bool operator!=(const values_iterator_impl& other) const noexcept
         {
             return slotMap != other.slotMap || currentIndex != other.currentIndex;
         }
 
-        const_values_iterator& operator++() noexcept
+        values_iterator_impl& operator++() noexcept
         {
             do
             {
@@ -1158,17 +1176,23 @@ template <typename T, typename TKeyType = slot_map_key64<T>, size_t PAGESIZE = 4
             return *this;
         }
 
-        const_values_iterator operator++(int) noexcept
+        values_iterator_impl operator++(int) noexcept
         {
-            const_values_iterator res = *this;
+            values_iterator_impl res = *this;
             ++*this;
             return res;
         }
 
       private:
-        const slot_map* slotMap;
+        slot_map_ptr slotMap;
         size_type currentIndex;
+
+        template <bool> friend class values_iterator_impl;
     };
+
+    // Type aliases for clean API
+    using const_values_iterator = values_iterator_impl<true>;
+    using values_iterator = values_iterator_impl<false>;
 
     const_values_iterator begin() const noexcept
     {
@@ -1184,8 +1208,22 @@ template <typename T, typename TKeyType = slot_map_key64<T>, size_t PAGESIZE = 4
     }
     const_values_iterator end() const noexcept { return const_values_iterator(this, getMaxValidIndex() + static_cast<size_type>(1)); }
 
-    // key-value iterator...................................
-    class const_kv_iterator
+    values_iterator begin() noexcept
+    {
+        if (pages.empty())
+            return end();
+
+        size_type index = 0;
+        while (index <= getMaxValidIndex() && isTombstone(index))
+        {
+            index++;
+        }
+        return values_iterator(this, index);
+    }
+    values_iterator end() noexcept { return values_iterator(this, getMaxValidIndex() + static_cast<size_type>(1)); }
+
+    // key-value iterator implementation...................................
+    template <bool IsConst> class kv_iterator_impl
     {
       public:
         // pretty much similar to std::reference_wrapper
@@ -1214,7 +1252,10 @@ template <typename T, typename TKeyType = slot_map_key64<T>, size_t PAGESIZE = 4
             operator TYPE&() const noexcept { return get(); }
         };
 
-        using KeyValue = std::pair<key, const reference<const T>>;
+        using slot_map_ptr = std::conditional_t<IsConst, const slot_map*, slot_map*>;
+        using value_ptr = std::conditional_t<IsConst, const T*, T*>;
+        using storage_ref = std::conditional_t<IsConst, const ValueStorage&, ValueStorage&>;
+        using KeyValue = std::conditional_t<IsConst, std::pair<key, const reference<const T>>, std::pair<key, reference<T>>>;
 
       private:
         void updateTmpKV() const noexcept
@@ -1223,17 +1264,33 @@ template <typename T, typename TKeyType = slot_map_key64<T>, size_t PAGESIZE = 4
             PageAddr addr = slotMap->getAddrFromIndex(currentIndex);
             SLOT_MAP_ASSERT(slotMap->isActivePage(addr));
             const Meta& m = slotMap->getMetaByAddr(addr);
-            const ValueStorage& v = slotMap->getValueByAddr(addr);
-            const T* value = reinterpret_cast<const T*>(&v);
+            storage_ref v = slotMap->getValueByAddr(addr);
+            value_ptr value = reinterpret_cast<value_ptr>(&v);
             tmpKv.first = key::make(m.version, index_t(currentIndex));
-            const reference<const T>& ref = tmpKv.second;
-            const_cast<reference<const T>&>(ref).set(value);
+
+            if constexpr (IsConst)
+            {
+                const_cast<reference<const T>&>(tmpKv.second).set(value);
+            }
+            else
+            {
+                tmpKv.second.set(value);
+            }
         }
 
       public:
-        explicit const_kv_iterator(const slot_map* _slotMap, size_type index) noexcept
+        explicit kv_iterator_impl(slot_map_ptr _slotMap, size_type index) noexcept
             : slotMap(_slotMap)
             , currentIndex(index)
+            , tmpKv(key::invalid(), std::conditional_t<IsConst, reference<const T>, reference<T>>(nullptr))
+        {
+        }
+
+        // Allow non-const to const conversion
+        template <bool OtherIsConst, typename = std::enable_if_t<IsConst && !OtherIsConst>>
+        kv_iterator_impl(const kv_iterator_impl<OtherIsConst>& other) noexcept
+            : slotMap(other.slotMap)
+            , currentIndex(other.currentIndex)
             , tmpKv(key::invalid(), reference<const T>(nullptr))
         {
         }
@@ -1250,16 +1307,16 @@ template <typename T, typename TKeyType = slot_map_key64<T>, size_t PAGESIZE = 4
             return &tmpKv;
         }
 
-        bool operator==(const const_kv_iterator& other) const noexcept
+        bool operator==(const kv_iterator_impl& other) const noexcept
         {
             return slotMap == other.slotMap && currentIndex == other.currentIndex;
         }
-        bool operator!=(const const_kv_iterator& other) const noexcept
+        bool operator!=(const kv_iterator_impl& other) const noexcept
         {
             return slotMap != other.slotMap || currentIndex != other.currentIndex;
         }
 
-        const_kv_iterator& operator++() noexcept
+        kv_iterator_impl& operator++() noexcept
         {
             do
             {
@@ -1268,32 +1325,41 @@ template <typename T, typename TKeyType = slot_map_key64<T>, size_t PAGESIZE = 4
             return *this;
         }
 
-        const_kv_iterator operator++(int) noexcept
+        kv_iterator_impl operator++(int) noexcept
         {
-            const_kv_iterator res = *this;
+            kv_iterator_impl res = *this;
             ++*this;
             return res;
         }
 
       private:
-        const slot_map* slotMap;
+        slot_map_ptr slotMap;
         size_type currentIndex;
         // unfortunately we need this to make it look like standard STL iterator (operator* and operator->)
         mutable KeyValue tmpKv;
+
+        template <bool> friend class kv_iterator_impl;
     };
 
+    // Type aliases for clean API
+    using const_kv_iterator = kv_iterator_impl<true>;
+    using kv_iterator = kv_iterator_impl<false>;
+
     // proxy items object
-    class Items
+    template <bool IsConst> class items_impl
     {
-        const slot_map* slotMap;
+        using slot_map_ptr = std::conditional_t<IsConst, const slot_map*, slot_map*>;
+        using iterator_type = std::conditional_t<IsConst, const_kv_iterator, kv_iterator>;
+
+        slot_map_ptr slotMap;
 
       public:
-        explicit Items(const slot_map* _slotMap) noexcept
+        explicit items_impl(slot_map_ptr _slotMap) noexcept
             : slotMap(_slotMap)
         {
         }
 
-        const_kv_iterator begin() const noexcept
+        iterator_type begin() const noexcept
         {
             if (slotMap->pages.empty())
                 return end();
@@ -1302,15 +1368,16 @@ template <typename T, typename TKeyType = slot_map_key64<T>, size_t PAGESIZE = 4
             {
                 index++;
             }
-            return const_kv_iterator(slotMap, index);
+            return iterator_type(slotMap, index);
         }
-        const_kv_iterator end() const noexcept
-        {
-            return const_kv_iterator(slotMap, slotMap->getMaxValidIndex() + static_cast<size_type>(1));
-        }
+        iterator_type end() const noexcept { return iterator_type(slotMap, slotMap->getMaxValidIndex() + static_cast<size_type>(1)); }
     };
 
+    using Items = items_impl<true>;
+    using MutableItems = items_impl<false>;
+
     Items items() const noexcept { return Items(this); }
+    MutableItems items() noexcept { return MutableItems(this); }
 
   private:
     std::vector<Page, stl::Allocator<Page>> pages;
