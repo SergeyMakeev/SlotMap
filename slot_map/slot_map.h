@@ -397,7 +397,8 @@ template <typename T, typename TKeyType = slot_map_key64<T>, size_t PAGESIZE = 4
     static inline constexpr size_type kMinFreeIndices = static_cast<size_type>(MINFREEINDICES);
 
   private:
-    struct ValueStorage {
+    struct ValueStorage
+    {
         std::byte data[sizeof(T)];
     };
 
@@ -502,7 +503,10 @@ template <typename T, typename TKeyType = slot_map_key64<T>, size_t PAGESIZE = 4
     };
 
     static inline size_type align(size_type cursor, size_type alignment) noexcept { return (cursor + (alignment - 1)) & ~(alignment - 1); }
-    static inline bool isPointerAligned(const void* cursor, size_t alignment) noexcept { return (uintptr_t(cursor) & (alignment - 1)) == 0; }
+    static inline bool isPointerAligned(const void* cursor, size_t alignment) noexcept
+    {
+        return (uintptr_t(cursor) & (alignment - 1)) == 0;
+    }
 
     template <typename TYPE, class... Args> static void construct(void* mem, Args&&... args)
     {
