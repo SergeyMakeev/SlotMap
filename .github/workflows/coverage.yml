@@ -59,11 +59,7 @@ jobs:
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          files: ./coverage.info
-          flags: unittests
-          name: codecov-umbrella
-          fail_ci_if_error: false
-          disable_search: true
-          override_branch: ${{ github.ref_name }}
-          override_build: ${{ github.run_number }}
-          override_commit: ${{ github.sha }} 
+          files: ./coverage_filtered.info
+          slug: SergeyMakeev/slot_map
+          fail_ci_if_error: true
+          verbose: true
