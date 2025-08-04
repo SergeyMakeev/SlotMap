@@ -189,3 +189,69 @@ TEST(SlotMapTest, WorkingWithRemovedPages)
     printf("Items: total: %d, alive: %d, tombstone: %d, inactive: %d\n", int(stats.numItemsTotal), int(stats.numAliveItems),
            int(stats.numTombstoneItems), int(stats.numInactiveItems));
 }
+
+TEST(SlotMapTest, RecursiveDeclaration)
+{
+    struct HalfEdge;
+    using HalfEdgeSM = dod::slot_map32<HalfEdge>;
+
+    struct HalfEdge
+    {
+        int value = 0;
+        HalfEdgeSM::key left = HalfEdgeSM::key::invalid();
+        HalfEdgeSM::key right = HalfEdgeSM::key::invalid();
+
+        HalfEdge() = default;
+        HalfEdge(int _value)
+            : value(_value)
+        {
+        }
+    };
+
+    HalfEdgeSM slotMap;
+
+    HalfEdge a(1);
+    HalfEdge b(2);
+    HalfEdge c(3);
+
+    c.left = slotMap.emplace(a);
+    c.right = slotMap.emplace(b);
+
+    EXPECT_TRUE(slotMap.has_key(c.left));
+    EXPECT_TRUE(slotMap.has_key(c.right));
+
+    EXPECT_EQ(c.value, 3);
+    EXPECT_EQ(slotMap.get(c.left)->value, 1);
+    EXPECT_EQ(slotMap.get(c.right)->value, 2);
+}
+
+TEST(SlotMapTest, CompileTimeTypeSafety)
+{
+    using TSlotMapInt = dod::slot_map32<int>;
+    using TSlotMapFloat = dod::slot_map32<float>;
+
+    TSlotMapInt::key keyInt;
+    TSlotMapFloat::key keyFloat;
+
+    keyInt = keyInt;      // OK
+    keyFloat == keyFloat; // OK
+#if 0
+    // should not compile!
+    keyInt = keyFloat;
+#endif
+
+    if (keyInt == keyInt) // OK
+    {
+    }
+
+    if (keyFloat == keyFloat) // OK
+    {
+    }
+
+#if 0
+    // should not compile!
+    if (keyInt == keyFloat) 
+    {
+    }
+#endif
+}

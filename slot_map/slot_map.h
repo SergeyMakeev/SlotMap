@@ -193,8 +193,8 @@ template <typename T> struct slot_map_key64
     bool operator==(const slot_map_key64& other) const noexcept { return raw == other.raw; }
     bool operator<(const slot_map_key64& other) const noexcept { return raw < other.raw; }
 
-    // implicit conversion to id_type (useful for printing and debug)
-    operator id_type() const noexcept { return raw; }
+    // explicit conversion to id_type (useful for printing and debug)
+    explicit operator id_type() const noexcept { return raw; }
 
     static inline slot_map_key64 invalid() noexcept { return slot_map_key64{0}; }
 
@@ -278,8 +278,8 @@ template <typename T> struct slot_map_key32
     bool operator==(const slot_map_key32& other) const noexcept { return raw == other.raw; }
     bool operator<(const slot_map_key32& other) const noexcept { return raw < other.raw; }
 
-    // implicit conversion to id_type (useful for printing and debug)
-    operator id_type() const noexcept { return raw; }
+    // explicit conversion to id_type (useful for printing and debug)
+    explicit operator id_type() const noexcept { return raw; }
 
     static inline slot_map_key32 invalid() noexcept { return slot_map_key32{0}; }
 
