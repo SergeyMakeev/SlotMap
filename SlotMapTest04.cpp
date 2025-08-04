@@ -230,8 +230,8 @@ TEST(SlotMapTest, CompileTimeTypeSafety)
     using TSlotMapInt = dod::slot_map32<int>;
     using TSlotMapFloat = dod::slot_map32<float>;
 
-    TSlotMapInt::key keyInt;
-    TSlotMapFloat::key keyFloat;
+    TSlotMapInt::key keyInt = TSlotMapInt::key::invalid();
+    TSlotMapFloat::key keyFloat = TSlotMapFloat::key::invalid();
 
     keyInt = keyInt;      // OK
     keyFloat == keyFloat; // OK

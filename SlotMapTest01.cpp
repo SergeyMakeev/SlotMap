@@ -273,17 +273,17 @@ TEST(SlotMapTest, TagTest32)
     EXPECT_EQ(ud2, 3u);
 }
 
-TEST(SlotMapTest, KeyImplicitConversionToNumber64)
+TEST(SlotMapTest, KeyConversionToNumber64)
 {
     auto key = dod::slot_map_key64<int>::invalid();
-    uint64_t test = key;
+    uint64_t test = uint64_t(key);
     EXPECT_EQ(test, 0ull);
 }
 
-TEST(SlotMapTest, KeyImplicitConversionToNumber32)
+TEST(SlotMapTest, KeyConversionToNumber32)
 {
     auto key = dod::slot_map_key32<int>::invalid();
-    uint32_t test = key;
+    uint32_t test = uint32_t(key);
     EXPECT_EQ(test, 0ull);
 }
 
