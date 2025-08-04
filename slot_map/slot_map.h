@@ -1,6 +1,7 @@
 #pragma once
 
 #include <algorithm>
+#include <cstddef>
 #include <cstring>
 #include <deque>
 #include <functional>
@@ -396,7 +397,9 @@ template <typename T, typename TKeyType = slot_map_key64<T>, size_t PAGESIZE = 4
     static inline constexpr size_type kMinFreeIndices = static_cast<size_type>(MINFREEINDICES);
 
   private:
-    using ValueStorage = typename std::aligned_storage<sizeof(T), alignof(T)>::type;
+    struct ValueStorage {
+        std::byte data[sizeof(T)];
+    };
 
     struct Meta
     {
@@ -466,7 +469,7 @@ template <typename T, typename TKeyType = slot_map_key64<T>, size_t PAGESIZE = 4
             size_type metaSize = static_cast<size_type>(sizeof(Meta)) * kPageSize;
             size_type dataSize = static_cast<size_type>(sizeof(ValueStorage)) * kPageSize;
             size_type alignedDataSize = align(dataSize, static_cast<size_type>(alignof(Meta)));
-            size_type alignment = std::max(static_cast<size_type>(alignof(Meta)), static_cast<size_type>(alignof(ValueStorage)));
+            size_type alignment = std::max(static_cast<size_type>(alignof(Meta)), static_cast<size_type>(alignof(T)));
             // some platforms (macOS) does not support alignments smaller than `alignof(void*)`
             // and 16 bytes seem like a nice compromise
             alignment = std::max(alignment, 16u);
@@ -493,13 +496,13 @@ template <typename T, typename TKeyType = slot_map_key64<T>, size_t PAGESIZE = 4
             SLOT_MAP_ASSERT(values == rawMemory);
             SLOT_MAP_ASSERT(values);
             SLOT_MAP_ASSERT(meta);
-            SLOT_MAP_ASSERT(isPointerAligned(values, alignof(ValueStorage)));
+            SLOT_MAP_ASSERT(isPointerAligned(values, alignof(T)));
             SLOT_MAP_ASSERT(isPointerAligned(meta, alignof(Meta)));
         }
     };
 
     static inline size_type align(size_type cursor, size_type alignment) noexcept { return (cursor + (alignment - 1)) & ~(alignment - 1); }
-    static inline bool isPointerAligned(void* cursor, size_t alignment) noexcept { return (uintptr_t(cursor) & (alignment - 1)) == 0; }
+    static inline bool isPointerAligned(const void* cursor, size_t alignment) noexcept { return (uintptr_t(cursor) & (alignment - 1)) == 0; }
 
     template <typename TYPE, class... Args> static void construct(void* mem, Args&&... args)
     {
@@ -535,6 +538,7 @@ template <typename T, typename TKeyType = slot_map_key64<T>, size_t PAGESIZE = 4
         SLOT_MAP_ASSERT(m.inactive == 0);
 
         const ValueStorage& v = getValueByAddr(addr);
+        SLOT_MAP_ASSERT(isPointerAligned(&v, alignof(T)));
         const T* value = reinterpret_cast<const T*>(&v);
         return value;
     }
@@ -697,8 +701,10 @@ template <typename T, typename TKeyType = slot_map_key64<T>, size_t PAGESIZE = 4
                         addr.index = elementIndex;
 
                         const ValueStorage& otherVal = other.getValueByAddr(addr);
+                        SLOT_MAP_ASSERT(isPointerAligned(&otherVal, alignof(T)));
                         const T* otherV = reinterpret_cast<const T*>(&otherVal);
                         ValueStorage& val = getValueByAddr(addr);
+                        SLOT_MAP_ASSERT(isPointerAligned(&val, alignof(T)));
 
                         // copy constructor
                         construct<T>(&val, *otherV);
@@ -744,6 +750,7 @@ template <typename T, typename TKeyType = slot_map_key64<T>, size_t PAGESIZE = 4
                 if constexpr (!std::is_trivially_destructible<T>::value)
                 {
                     ValueStorage& v = getValueByAddr(addr);
+                    SLOT_MAP_ASSERT(isPointerAligned(&v, alignof(T)));
                     destruct(reinterpret_cast<const T*>(&v));
                 }
                 numItemsDestroyed++;
@@ -810,6 +817,7 @@ template <typename T, typename TKeyType = slot_map_key64<T>, size_t PAGESIZE = 4
         if constexpr (!std::is_trivially_destructible<T>::value)
         {
             ValueStorage& v = getValueByAddr(addr);
+            SLOT_MAP_ASSERT(isPointerAligned(&v, alignof(T)));
             const T* pv = reinterpret_cast<const T*>(&v);
             destruct(pv);
         }
@@ -959,6 +967,7 @@ template <typename T, typename TKeyType = slot_map_key64<T>, size_t PAGESIZE = 4
             m.tombstone = 0;
 
             ValueStorage& v = getValueByAddr(addr);
+            SLOT_MAP_ASSERT(isPointerAligned(&v, alignof(T)));
             construct<T>(&v, std::forward<Args>(args)...);
             numItems++;
             return k;
@@ -973,6 +982,7 @@ template <typename T, typename TKeyType = slot_map_key64<T>, size_t PAGESIZE = 4
         SLOT_MAP_ASSERT(m.tombstone == 0);
 
         ValueStorage& v = getValueByAddr(addr);
+        SLOT_MAP_ASSERT(isPointerAligned(&v, alignof(T)));
         construct<T>(&v, std::forward<Args>(args)...);
         numItems++;
         key k = key::make(m.version, index);
@@ -1137,6 +1147,7 @@ template <typename T, typename TKeyType = slot_map_key64<T>, size_t PAGESIZE = 4
             PageAddr addr = slotMap->getAddrFromIndex(currentIndex);
             SLOT_MAP_ASSERT(slotMap->isActivePage(addr));
             storage_ref v = slotMap->getValueByAddr(addr);
+            SLOT_MAP_ASSERT(slotMap->isPointerAligned(&v, alignof(T)));
             return reinterpret_cast<value_ptr>(&v);
         }
 
@@ -1265,6 +1276,7 @@ template <typename T, typename TKeyType = slot_map_key64<T>, size_t PAGESIZE = 4
             SLOT_MAP_ASSERT(slotMap->isActivePage(addr));
             const Meta& m = slotMap->getMetaByAddr(addr);
             storage_ref v = slotMap->getValueByAddr(addr);
+            SLOT_MAP_ASSERT(slotMap->isPointerAligned(&v, alignof(T)));
             value_ptr value = reinterpret_cast<value_ptr>(&v);
             tmpKv.first = key::make(m.version, index_t(currentIndex));
 
