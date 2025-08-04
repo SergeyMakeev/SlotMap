@@ -225,6 +225,8 @@ TEST(SlotMapTest, RecursiveDeclaration)
     EXPECT_EQ(slotMap.get(c.right)->value, 2);
 }
 
+// This is a compiler test - not the real unit-test
+#if 0
 TEST(SlotMapTest, CompileTimeTypeSafety)
 {
     using TSlotMapInt = dod::slot_map32<int>;
@@ -235,10 +237,9 @@ TEST(SlotMapTest, CompileTimeTypeSafety)
 
     keyInt = keyInt;      // OK
     keyFloat == keyFloat; // OK
-#if 0
+
     // should not compile!
     keyInt = keyFloat;
-#endif
 
     if (keyInt == keyInt) // OK
     {
@@ -248,10 +249,9 @@ TEST(SlotMapTest, CompileTimeTypeSafety)
     {
     }
 
-#if 0
     // should not compile!
     if (keyInt == keyFloat) 
     {
     }
-#endif
 }
+#endif
