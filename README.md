@@ -3,7 +3,6 @@
 
 [![License](https://img.shields.io/github/license/SergeyMakeev/CircularBuffer)](LICENSE)
 [![ci](https://github.com/SergeyMakeev/CircularBuffer/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/SergeyMakeev/CircularBuffer/actions/workflows/ci.yml)
-[![codecov](https://codecov.io/gh/SergeyMakeev/slot_map/graph/badge.svg?token=3GRAFTRYQU)](https://codecov.io/gh/SergeyMakeev/slot_map)
 
 A Slot Map is a high-performance associative container with persistent unique keys to access stored values. It's designed for performance-critical applications where stable references, O(1) operations, and memory efficiency are essential.
 
