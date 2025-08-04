@@ -30,6 +30,10 @@ set(TEST_SOURCES
 
 add_executable(${PROJ_NAME} ${TEST_SOURCES})
 
+# Set Visual Studio startup project
+set_property(DIRECTORY ${CMAKE_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT SlotMapTest)
+
+
 if(MSVC)
   target_compile_options(${PROJ_NAME} PRIVATE /W4 /WX /permissive- /EHsc)
   add_definitions(-D_CRT_SECURE_NO_WARNINGS)

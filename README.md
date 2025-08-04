@@ -1,8 +1,8 @@
 # Slot Map
 
 
-[![License](https://img.shields.io/github/license/SergeyMakeev/CircularBuffer)](LICENSE)
-[![ci](https://github.com/SergeyMakeev/CircularBuffer/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/SergeyMakeev/CircularBuffer/actions/workflows/ci.yml)
+[![License](https://img.shields.io/github/license/SergeyMakeev/SlotMap)](LICENSE)
+[![ci](https://github.com/SergeyMakeev/SlotMap/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/SergeyMakeev/SlotMap/actions/workflows/ci.yml)
 
 A Slot Map is a high-performance associative container with persistent unique keys to access stored values. It's designed for performance-critical applications where stable references, O(1) operations, and memory efficiency are essential.
 
@@ -101,8 +101,8 @@ Simply include the header file in your project:
 
 ### Building Tests
 ```bash
-git clone https://github.com/SergeyMakeev/slot_map.git
-cd slot_map
+git clone https://github.com/SergeyMakeev/SlotMap.git
+cd SlotMap
 mkdir build && cd build
 cmake ..
 cmake --build .

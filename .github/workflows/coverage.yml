@@ -60,6 +60,6 @@ jobs:
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ./coverage_filtered.info
-          slug: SergeyMakeev/slot_map
+          slug: SergeyMakeev/SlotMap
           fail_ci_if_error: true
           verbose: true
