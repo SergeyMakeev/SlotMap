@@ -3,6 +3,7 @@
 
 [![License](https://img.shields.io/github/license/SergeyMakeev/SlotMap)](LICENSE)
 [![ci](https://github.com/SergeyMakeev/SlotMap/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/SergeyMakeev/SlotMap/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/SergeyMakeev/SlotMap/graph/badge.svg?token=7O82VCFEM2)](https://codecov.io/gh/SergeyMakeev/SlotMap)
 
 A Slot Map is a high-performance associative container with persistent unique keys to access stored values. It's designed for performance-critical applications where stable references, O(1) operations, and memory efficiency are essential.
 
